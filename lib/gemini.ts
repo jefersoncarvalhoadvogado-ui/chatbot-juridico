@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { match } from "assert/strict";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
@@ -40,10 +41,9 @@ export async function processarMensagem(telefone: string, mensagem: string) {
     { role: "model", parts: [{ text: resposta }] }
   );
   historicos.set(telefone, historico);
-
-  const match = resposta.match(/\[LEAD:({.*?})\]/s);
+const match = resposta.match(/\[LEAD:({[^}]*})\]/);
   const leadData = match ? JSON.parse(match[1]) : null;
-  const respostaLimpa = resposta.replace(/\[LEAD:.*?\]/s, "").trim();
+  const respostaLimpa = resposta.replace(/\[LEAD:[^\]]*\]/, "").trim();
 
   return { resposta: respostaLimpa, leadData };
 }
