@@ -1,9 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { match } from "assert/strict";
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-
-const SYSTEM_PROMPT = `Você é o assistente virtual do escritório Jeferson Carvalho Advocacia, 
+const SYSTEM_PROMPT = `Você é o assistente virtual do escritório Jeferson Carvalho Advocacia,
 especializado em Direito Previdenciário na Bahia.
 
 OBJETIVO: Qualificar o lead em até 6 mensagens coletando:
@@ -26,24 +23,38 @@ QUANDO TIVER TODOS OS DADOS, adicione ao final da resposta:
 const historicos = new Map<string, any[]>();
 
 export async function processarMensagem(telefone: string, mensagem: string) {
-  const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
-    systemInstruction: SYSTEM_PROMPT,
+  const historico = historicos.get(telefone) || [];
+
+  historico.push({ role: "user", content: mensagem });
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "meta-llama/llama-4-scout:free",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...historico,
+      ],
+    }),
   });
 
-  const historico = historicos.get(telefone) || [];
-  const chat = model.startChat({ history: historico });
-  const result = await chat.sendMessage(mensagem);
-  const resposta = result.response.text();
+  const data = await response.json();
+  const resposta = data.choices[0].message.content;
 
-  historico.push(
-    { role: "user", parts: [{ text: mensagem }] },
-    { role: "model", parts: [{ text: resposta }] }
-  );
+  historico.push({ role: "assistant", content: resposta });
   historicos.set(telefone, historico);
-const match = resposta.match(/\[LEAD:({[^}]*})\]/);
-  const leadData = match ? JSON.parse(match[1]) : null;
-  const respostaLimpa = resposta.replace(/\[LEAD:[^\]]*\]/, "").trim();
 
-  return { resposta: respostaLimpa, leadData };
+  const leadMatch = resposta.match(/\[LEAD:(.*?)\]/);
+  let leadData = null;
+  if (leadMatch) {
+    try {
+      leadData = JSON.parse(leadMatch[1]);
+    } catch {}
+  }
+
+  return { resposta: resposta.replace(/\[LEAD:.*?\]/g, "").trim(), leadData };
 }
