@@ -1,4 +1,6 @@
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY!;
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 const SYSTEM_PROMPT = `Você é o assistente virtual do escritório Jeferson Carvalho Advocacia,
 especializado em Direito Previdenciário na Bahia.
@@ -23,34 +25,21 @@ QUANDO TIVER TODOS OS DADOS, adicione ao final da resposta:
 const historicos = new Map<string, any[]>();
 
 export async function processarMensagem(telefone: string, mensagem: string) {
-  const historico = historicos.get(telefone) || [];
-
-  historico.push({ role: "user", content: mensagem });
-
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
- model: "deepseek/deepseek-chat-v3-0324:free",
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        ...historico,
-      ],
-    }),
+  const model = genAI.getGenerativeModel({
+    model: "gemini-2.0-flash",
+    systemInstruction: SYSTEM_PROMPT,
   });
 
-  const data = await response.json();
-console.log("OpenRouter response:", JSON.stringify(data));
-if (!data.choices || !data.choices[0]) {
-  throw new Error(`OpenRouter error: ${JSON.stringify(data)}`);
-}
-const resposta = data.choices[0].message.content;
+  const historico = historicos.get(telefone) || [];
+  const chat = model.startChat({ history: historico });
+  const result = await chat.sendMessage(mensagem);
+  const resposta = result.response.text();
 
-  historico.push({ role: "assistant", content: resposta });
-  historicos.set(telefone, historico);
+  historicos.set(telefone, [
+    ...historico,
+    { role: "user", parts: [{ text: mensagem }] },
+    { role: "model", parts: [{ text: resposta }] },
+  ]);
 
   const leadMatch = resposta.match(/\[LEAD:(.*?)\]/);
   let leadData = null;
