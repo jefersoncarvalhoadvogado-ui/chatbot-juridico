@@ -34,7 +34,7 @@ export async function processarMensagem(telefone: string, mensagem: string) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-4-scout:free",
+      model: "meta-llama/llama-3.1-8b-instruct:free",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...historico,
