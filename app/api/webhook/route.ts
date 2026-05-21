@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  console.log("BODY RECEBIDO:", JSON.stringify(body));
   const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
   if (!message || message.type !== "text") {
