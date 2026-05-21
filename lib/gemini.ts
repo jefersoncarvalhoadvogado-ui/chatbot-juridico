@@ -43,7 +43,11 @@ export async function processarMensagem(telefone: string, mensagem: string) {
   });
 
   const data = await response.json();
-  const resposta = data.choices[0].message.content;
+console.log("OpenRouter response:", JSON.stringify(data));
+if (!data.choices || !data.choices[0]) {
+  throw new Error(`OpenRouter error: ${JSON.stringify(data)}`);
+}
+const resposta = data.choices[0].message.content;
 
   historico.push({ role: "assistant", content: resposta });
   historicos.set(telefone, historico);
