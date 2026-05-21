@@ -1,6 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import Anthropic from "@anthropic-ai/sdk";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+});
 
 const SYSTEM_PROMPT = `Você é o assistente virtual do escritório Jeferson Carvalho Advocacia,
 especializado em Direito Previdenciário na Bahia.
@@ -22,32 +24,27 @@ REGRAS:
 QUANDO TIVER TODOS OS DADOS, adicione ao final da resposta:
 [LEAD:{"nome":"...","tipo":"...","situacao":"...","advogado":"...","cidade":"..."}]`;
 
-const historicos = new Map<string, any[]>();
+const historicos = new Map<string, { role: "user" | "assistant"; content: string }[]>();
 
 export async function processarMensagem(telefone: string, mensagem: string) {
-  const model = genAI.getGenerativeModel({
-    model:"gemini-pro",
-    systemInstruction: SYSTEM_PROMPT,
+  const historico = historicos.get(telefone) || [];
+
+  historico.push({ role: "user", content: mensagem });
+
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 1024,
+    system: SYSTEM_PROMPT,
+    messages: historico,
   });
 
-  const historico = historicos.get(telefone) || [];
-  const chat = model.startChat({ history: historico });
-  const result = await chat.sendMessage(mensagem);
-  const resposta = result.response.text();
+  const resposta = response.content[0].type === "text" ? response.content[0].text : "";
 
-  historicos.set(telefone, [
-    ...historico,
-    { role: "user", parts: [{ text: mensagem }] },
-    { role: "model", parts: [{ text: resposta }] },
-  ]);
+  historico.push({ role: "assistant", content: resposta });
+  historicos.set(telefone, historico);
 
   const leadMatch = resposta.match(/\[LEAD:(.*?)\]/);
-  let leadData = null;
-  if (leadMatch) {
-    try {
-      leadData = JSON.parse(leadMatch[1]);
-    } catch {}
-  }
+  const leadData = leadMatch ? JSON.parse(leadMatch[1]) : null;
 
-  return { resposta: resposta.replace(/\[LEAD:.*?\]/g, "").trim(), leadData };
+  return { resposta, leadData };
 }
