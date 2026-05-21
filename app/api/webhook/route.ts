@@ -24,23 +24,24 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   console.log("BODY RECEBIDO:", JSON.stringify(body));
   const message = body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+  console.log("MESSAGE:", JSON.stringify(message));
 
   if (!message || message.type !== "text") {
+    console.log("FILTRADO - tipo:", message?.type);
     return Response.json({ ok: true });
   }
 
   const telefone = message.from;
   const texto = message.text.body;
+  console.log("PROCESSANDO:", telefone, texto);
 
-  const { resposta, leadData } = await processarMensagem(telefone, texto);
-  await enviarMensagem(telefone, resposta);
-
-  if (leadData) {
-    await supabase.from("leads").insert({
-      telefone,
-      ...leadData,
-      status: "novo",
-    });
+  try {
+    const { resposta, leadData } = await processarMensagem(telefone, texto);
+    console.log("RESPOSTA CLAUDE:", resposta);
+    await enviarMensagem(telefone, resposta);
+    console.log("MENSAGEM ENVIADA");
+  } catch (error) {
+    console.error("ERRO:", error);
   }
 
   return Response.json({ ok: true });
