@@ -1,5 +1,5 @@
 export async function enviarMensagem(telefone: string, texto: string) {
-  await fetch(
+  const response = await fetch(
     `https://graph.facebook.com/v19.0/${process.env.WHATSAPP_PHONE_ID}/messages`,
     {
       method: "POST",
@@ -15,4 +15,9 @@ export async function enviarMensagem(telefone: string, texto: string) {
       }),
     }
   );
+
+  const result = await response.json();
+  console.log("WHATSAPP STATUS:", response.status);
+  console.log("WHATSAPP RESPONSE:", JSON.stringify(result));
+  return result;
 }
